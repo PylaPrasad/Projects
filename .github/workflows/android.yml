@@ -2,100 +2,57 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ master ] # This workflow runs when code is pushed to the 'master' branch
+    branches: [ master ]
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner provided by GitHub Actions
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository # Step to get your code from the repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: Set up Python 3.10 # Configure the Python environment
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.10"
 
-    - name: Install system dependencies # Install essential build tools and Java
+    - name: Install system dependencies
       run: |
-        # Update apt package lists and install curl for downloading, openjdk for Java
         sudo apt update
-        sudo apt install -y python3-pip build-essential git zip unzip openjdk-17-jdk curl
-
-        # Upgrade pip and install Python packages required by Buildozer
+        sudo apt install -y python3-pip build-essential git zip unzip openjdk-17-jdk
         pip install --upgrade pip
         pip install --user buildozer cython
-
-        # Add the user's local bin directory to the PATH. This ensures `buildozer`
-        # and `cython` executables are found by the shell.
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK and NDK # Separate step for clarity and better error isolation
+    - name: Install Android SDK & NDK
       run: |
-        # --- Android SDK Setup ---
-        # Define the root directory for the Android SDK within the runner's home.
-        # This ensures write permissions.
-        ANDROID_SDK_ROOT="$HOME/android-sdk"
-        # URL for the latest Android command-line tools.
-        # This exact version `9477386` was referenced in your provided `.yml`.
-        SDK_TOOLS_ZIP="commandlinetools-linux-9477386_latest.zip"
-        SDK_TOOLS_URL="https://dl.google.com/android/repository/${SDK_TOOLS_ZIP}"
+        # Create SDK directory
+        mkdir -p ~/android-sdk
+        
+        # Download and extract command line tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip cmdline-tools.zip -d cmdline-tools
+        mkdir -p ~/android-sdk/cmdline-tools/latest
+        mv cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
+        rm -rf cmdline-tools cmdline-tools.zip
+        
+        # Set environment variables
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+        
+        # Accept licenses and install components
+        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
+        
+        # Verify installation
+        ls -la ~/android-sdk/build-tools/34.0.0/
 
-        # Create the main Android SDK directory.
-        mkdir -p "$ANDROID_SDK_ROOT"
-
-        # Download the command-line tools ZIP and extract it to a temporary location.
-        mkdir -p /tmp/android-sdk-temp
-        curl -o /tmp/${SDK_TOOLS_ZIP} ${SDK_TOOLS_URL}
-        unzip -q /tmp/${SDK_TOOLS_ZIP} -d /tmp/android-sdk-temp/
-        rm /tmp/${SDK_TOOLS_ZIP} # Remove the downloaded ZIP file
-
-        # Move the extracted 'cmdline-tools' contents into an 'old-style' 'tools/' directory.
-        # This structure ($ANDROID_SDK_ROOT/tools/bin/sdkmanager) is often expected by Buildozer.
-        mkdir -p "$ANDROID_SDK_ROOT/tools" # Create the 'tools' directory
-        # Move the actual tools (bin, lib, source.properties, etc.) into $ANDROID_SDK_ROOT/tools/
-        mv /tmp/android-sdk-temp/cmdline-tools/* "$ANDROID_SDK_ROOT/tools/"
-
-        # Clean up the temporary extraction directory.
-        rmdir /tmp/android-sdk-temp/cmdline-tools
-        rmdir /tmp/android-sdk-temp
-
-        # Set environment variables for Android SDK. These are crucial for Buildozer
-        # and other Android tools to find the SDK.
-        echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-        echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-
-        # Add the Android SDK tools (where sdkmanager resides) and platform-tools
-        # to the system's PATH. This makes commands like `sdkmanager` directly callable.
-        echo "$ANDROID_SDK_ROOT/tools/bin" >> $GITHUB_PATH
-        echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
-
-        # Accept Android SDK licenses automatically. This is mandatory for the build to proceed.
-        yes | sdkmanager --licenses
-
-        # Install specific Android SDK components using `sdkmanager`.
-        # 'platform-tools': Essential for Android development.
-        # 'platforms;android-33': Installs Android API level 33 platform, matching buildozer.spec.
-        # 'build-tools;34.0.0': Installs Android Build Tools 34.0.0, including AIDL, matching buildozer.spec.
-        # NDK is handled by Buildozer based on `android.ndk` in `buildozer.spec`, so we don't install it here.
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0"
-
-        # Verify installation (optional, but good for debugging)
-        echo "Verifying SDK/Build Tools installation..."
-        ls -la "$ANDROID_SDK_ROOT/build-tools/34.0.0/"
-        echo "Verifying sdkmanager path:"
-        which sdkmanager || echo "sdkmanager not found in PATH"
-        echo "Verifying ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-        echo "Verifying PATH: $PATH"
-
-
-    - name: Build APK # Execute the Buildozer command to build the Android debug APK
+    - name: Build APK
       run: |
-        buildozer -v android debug # -v for verbose output, helpful for debugging
+        buildozer -v android debug
 
-    - name: Upload APK # Upload the generated APK as a workflow artifact
+    - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: ytdownloader-apk # Consistent with your buildozer.spec's package.name
-        path: bin/*.apk # Path to the generated APK files (Buildozer places them in the 'bin' directory)
+        name: ytdownloader-apk
+        path: bin/*.apk
