@@ -26,26 +26,43 @@ jobs:
 
     - name: Install Android SDK & NDK
       run: |
-        # Create SDK directory
+        # Create Android SDK directory
         mkdir -p ~/android-sdk
         
-        # Download and extract command line tools
+        # Download and extract command line tools to CORRECT location
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d cmdline-tools
-        mkdir -p ~/android-sdk/cmdline-tools/latest
-        mv cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
-        rm -rf cmdline-tools cmdline-tools.zip
+        mkdir -p ~/android-sdk/cmdline-tools
+        unzip cmdline-tools.zip -d ~/android-sdk/cmdline-tools
+        mv ~/android-sdk/cmdline-tools/cmdline-tools ~/android-sdk/cmdline-tools/latest
+        rm cmdline-tools.zip
+        
+        # Verify directory structure
+        echo "Directory structure:"
+        ls -la ~/android-sdk/cmdline-tools/latest/bin/
         
         # Set environment variables
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
         echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
         
-        # Accept licenses and install components
-        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
+        # Check PATH
+        echo "Current PATH: $PATH"
         
-        # Verify installation
+        # Verify sdkmanager exists
+        echo "sdkmanager path:"
+        which sdkmanager || true
+        ls -la $(which sdkmanager) || true
+        
+        # Accept licenses (with proper path)
+        yes | $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        # Install components (with proper path)
+        $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;34.0.0" "ndk;25.1.8937393"
+        
+        # Verify installations
+        echo "Installed components:"
         ls -la ~/android-sdk/build-tools/34.0.0/
+        ls -la ~/android-sdk/ndk/25.1.8937393/
 
     - name: Build APK
       run: |
