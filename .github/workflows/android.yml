@@ -24,17 +24,22 @@ jobs:
         pip install --user buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK & NDK
+    - name: Install Android SDK & NDK (Fixed)
       run: |
+        # Install cmdline-tools with correct structure
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d cmdline-tools
-        mkdir -p ~/android-sdk/cmdline-tools/latest
-        mv cmdline-tools/* ~/android-sdk/cmdline-tools/latest/
-        rm -rf cmdline-tools cmdline-tools.zip
-        echo "export ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-        echo "export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_ENV
-        yes | sdkmanager --licenses
-        sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "ndk;25.1.8937393"
+        mkdir -p ~/android-sdk/cmdline-tools
+        unzip cmdline-tools.zip -d ~/android-sdk/cmdline-tools
+        mv ~/android-sdk/cmdline-tools/cmdline-tools ~/android-sdk/cmdline-tools/latest
+        rm cmdline-tools.zip
+        
+        # Set environment variables
+        echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+        
+        # Accept licenses and install components
+        yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "ndk;25.1.8937393"
 
     - name: Build APK
       run: |
