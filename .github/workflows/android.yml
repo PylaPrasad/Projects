@@ -14,14 +14,15 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.10
+        python-version: "3.10"
 
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y python3-pip build-essential git zip unzip openjdk-17-jdk
         pip install --upgrade pip
-        pip install buildozer cython
+        pip install --user buildozer cython
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Build APK
       run: |
