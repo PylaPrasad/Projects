@@ -24,26 +24,20 @@ jobs:
         pip install --user buildozer cython
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-    - name: Install Android SDK & NDK (Fixed)
+    - name: Install Android SDK & NDK
       run: |
-        # Install cmdline-tools with correct structure
         wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
         mkdir -p ~/android-sdk/cmdline-tools
         unzip cmdline-tools.zip -d ~/android-sdk/cmdline-tools
         mv ~/android-sdk/cmdline-tools/cmdline-tools ~/android-sdk/cmdline-tools/latest
         rm cmdline-tools.zip
-        
-        # Set environment variables
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
         echo "PATH=$HOME/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
-        
-        # Accept licenses and install components
         yes | ~/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
         ~/android-sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0" "ndk;25.1.8937393"
 
     - name: Build APK
       run: |
-        buildozer init
         sed -i 's/#android.ndk_path =/android.ndk_path = ~\/android-sdk\/ndk\/25.1.8937393/' buildozer.spec
         buildozer -v android debug
 
